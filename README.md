@@ -41,8 +41,20 @@ python scripts/download_model.py
 docker build -t tts-service:0.1.0 .
 ```
 
-The final image is ~5 GB (CUDA base + PyTorch cu128 + model weights). Push to
-your registry (`docker push ...`) and it's ready for Kubernetes.
+The app `Dockerfile` extends a pre-baked base (`samebodyonce/tts-service-base`)
+that already has CUDA + Python 3.12 + torch cu128 + FastAPI + omnivoice-triton
+installed. That keeps app rebuilds down to seconds since only `models/`, `src/`,
+and `voices/` need to be copied.
+
+To rebuild the base itself (only needed when heavy deps change):
+
+```bash
+docker build -f Dockerfile.base -t samebodyonce/tts-service-base:0.1.0 .
+docker push samebodyonce/tts-service-base:0.1.0
+```
+
+Final app image is ~15 GB (base + model weights). Push to your registry
+(`docker push ...`) and it's ready for Kubernetes.
 
 ### 3. Run locally (requires nvidia-container-toolkit)
 

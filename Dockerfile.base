@@ -1,0 +1,42 @@
+# Base image with all heavy dependencies pre-installed. No app code, no model.
+# Tag the app on top of this for faster iteration:
+#     FROM samebodyonce/tts-service-base:0.1.0
+#     COPY models /app/models
+#     COPY src ./src
+#     COPY voices ./voices
+#     CMD ["python", "-m", "uvicorn", "tts_service.main:app", ...]
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    HF_HOME=/opt/hf-cache
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common ca-certificates curl git \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.12 python3.12-venv python3.12-dev libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12 \
+    && ln -sf /usr/bin/python3.12 /usr/local/bin/python \
+    && ln -sf /usr/bin/python3.12 /usr/local/bin/python3
+
+WORKDIR /app
+
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cu128 \
+        torch==2.8.0+cu128 torchaudio==2.8.0+cu128
+
+RUN pip install \
+        "fastapi>=0.115" "uvicorn[standard]>=0.30" \
+        "pydantic>=2.7" "pydantic-settings>=2.4" \
+        "numpy>=1.26" "scipy>=1.13" "soundfile>=0.12" \
+        "omnivoice-triton>=0.1"
+
+ENV PYTHONPATH=/app/src
+
+EXPOSE 8000
