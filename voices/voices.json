@@ -1,0 +1,20 @@
+[
+  {
+    "id": "kk_default",
+    "lang": "kk",
+    "mode": "auto",
+    "description": "Kazakh — auto voice. Switch to mode=clone and set ref_audio/ref_text once you have a recording."
+  },
+  {
+    "id": "ru_default",
+    "lang": "ru",
+    "mode": "auto",
+    "description": "Russian — auto voice."
+  },
+  {
+    "id": "tr_default",
+    "lang": "tr",
+    "mode": "auto",
+    "description": "Turkish — auto voice."
+  }
+]

@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.DS_Store
+dist/
+build/
+*.wav
+!voices/*.wav
+*.log
+.huggingface/
+
+# Model weights are baked into the Docker image at build time, not committed.
+models/
+
+# Claude Code local settings
+.claude/
