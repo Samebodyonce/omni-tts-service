@@ -1,7 +1,7 @@
 # App image: builds on the pre-baked base (CUDA + Python + torch cu128 + deps).
 # Rebuild the base with `docker build -f Dockerfile.base -t samebodyonce/tts-service-base:0.1.0 .`
 # whenever heavy deps (torch, omnivoice-triton) change.
-FROM samebodyonce/tts-service-base:0.1.0
+FROM samebodyonce/tts-service-base:0.2.0
 
 # Model weights baked in so prod pods don't need network access to HF.
 # Pre-download locally:  python scripts/download_model.py
