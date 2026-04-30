@@ -3,6 +3,9 @@
 # whenever heavy deps (torch, omnivoice-triton) change.
 FROM samebodyonce/tts-service-base:0.2.0
 
+# Needed by FastAPI's Form/File handling for the /tts/generate UI endpoint.
+RUN pip install "python-multipart>=0.0.9"
+
 # Model weights baked in so prod pods don't need network access to HF.
 # Pre-download locally:  python scripts/download_model.py
 COPY models /app/models

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OmniVoice — синтез речи</title>
+<link rel="stylesheet" href="/ui/styles.css">
+</head>
+<body>
+<header>
+  <h1>OmniVoice</h1>
+  <p class="subtitle">Синтез речи для колл-центра · 8 кГц PCM/WAV</p>
+  <div id="status" class="status" data-state="loading">проверка статуса…</div>
+</header>
+
+<main>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="auto"   role="tab">Авто</button>
+    <button class="tab"        data-tab="design" role="tab">Дизайн голоса</button>
+    <button class="tab"        data-tab="clone"  role="tab">Клонирование</button>
+  </nav>
+
+  <!-- ──────────── Авто ──────────── -->
+  <section class="panel active" data-panel="auto">
+    <p class="hint">Модель сама подбирает голос под выбранный язык. Подходит, когда у вас ещё нет
+      эталонной записи.</p>
+    <form data-mode="auto">
+      <label>Язык
+        <select name="lang" required>
+          <option value="ru" selected>Русский</option>
+          <option value="kk">Қазақша</option>
+          <option value="tr">Türkçe</option>
+        </select>
+      </label>
+      <label>Текст
+        <textarea name="text" rows="4" maxlength="500" required
+          placeholder="Здравствуйте! Вы позвонили в наш колл-центр."></textarea>
+      </label>
+      <button type="submit">Синтезировать</button>
+    </form>
+  </section>
+
+  <!-- ──────────── Дизайн голоса ──────────── -->
+  <section class="panel" data-panel="design">
+    <p class="hint">Опишите желаемый голос словами, например <em>«мужской, низкий тембр, спокойный»</em>.
+      <br><small>Режим обучен на zh/en — для kk/ru/tr может работать нестабильно.</small></p>
+    <form data-mode="design">
+      <label>Язык
+        <select name="lang" required>
+          <option value="ru" selected>Русский</option>
+          <option value="kk">Қазақша</option>
+          <option value="tr">Türkçe</option>
+        </select>
+      </label>
+      <label>Описание голоса (instruct)
+        <input name="instruct" type="text" required
+          placeholder="женский, мягкий тембр, доброжелательный">
+      </label>
+      <label>Текст
+        <textarea name="text" rows="4" maxlength="500" required
+          placeholder="Введите текст для озвучивания…"></textarea>
+      </label>
+      <button type="submit">Синтезировать</button>
+    </form>
+  </section>
+
+  <!-- ──────────── Клонирование ──────────── -->
+  <section class="panel" data-panel="clone">
+    <p class="hint">Загрузите чистую WAV-запись 3–10 секунд (16 кГц моно или выше) и точную транскрипцию.
+      Лучший по качеству режим.</p>
+    <form data-mode="clone">
+      <label>Язык
+        <select name="lang" required>
+          <option value="ru" selected>Русский</option>
+          <option value="kk">Қазақша</option>
+          <option value="tr">Türkçe</option>
+        </select>
+      </label>
+      <label>Эталонное аудио (.wav)
+        <input name="ref_audio" type="file" accept="audio/wav,audio/x-wav,.wav" required>
+      </label>
+      <label>Транскрипция эталона
+        <input name="ref_text" type="text" required
+          placeholder="Точный текст того, что произнесено в записи">
+      </label>
+      <label>Текст для синтеза
+        <textarea name="text" rows="4" maxlength="500" required
+          placeholder="Что должен произнести клонированный голос…"></textarea>
+      </label>
+      <button type="submit">Синтезировать</button>
+    </form>
+  </section>
+
+  <div id="result" class="result hidden">
+    <h3>Результат</h3>
+    <audio id="player" controls></audio>
+    <a id="download" class="dl" download="tts.wav">Скачать WAV</a>
+    <div id="meta" class="meta"></div>
+  </div>
+
+  <div id="error" class="error hidden"></div>
+</main>
+
+<script src="/ui/app.js"></script>
+</body>
+</html>

@@ -1,16 +1,19 @@
 import io
 import logging
+import tempfile
 import wave
 from contextlib import asynccontextmanager
+from pathlib import Path as PathLib
 from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Query, Response
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, File, Form, HTTPException, Query, Response, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .engine import QueueFullError, RequestTimeoutError, TTSEngine
-from .schemas import HealthResponse, TTSRequest, VoicesResponse
+from .schemas import HealthResponse, Lang, TTSRequest, VoiceMode, VoicesResponse
 from .settings import settings
-from .voices import VoiceRegistry
+from .voices import Voice, VoiceRegistry
 
 log = logging.getLogger("tts_service")
 
@@ -43,6 +46,14 @@ app = FastAPI(
     description="Low-latency TTS (8 kHz raw PCM) for call-center use. Powered by omnivoice-triton.",
     lifespan=lifespan,
 )
+
+_STATIC_DIR = PathLib(__file__).parent / "static"
+app.mount("/ui", StaticFiles(directory=_STATIC_DIR, html=True), name="ui")
+
+
+@app.get("/", include_in_schema=False)
+async def root() -> FileResponse:
+    return FileResponse(_STATIC_DIR / "index.html")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -116,6 +127,86 @@ async def tts(
         raise HTTPException(status_code=503, detail="queue full, retry later")
     except RequestTimeoutError:
         raise HTTPException(status_code=504, detail="gpu worker timed out")
+
+    if fmt == "wav":
+        return Response(
+            content=_wrap_wav(pcm, settings.sample_rate_out),
+            media_type="audio/wav",
+            headers={"X-Sample-Rate": str(settings.sample_rate_out)},
+        )
+    return Response(
+        content=pcm,
+        media_type="application/octet-stream",
+        headers={
+            "X-Sample-Rate": str(settings.sample_rate_out),
+            "X-Sample-Format": "s16le",
+            "X-Channels": "1",
+        },
+    )
+
+
+@app.post(
+    "/tts/generate",
+    responses={
+        200: {
+            "content": {"application/octet-stream": {}, "audio/wav": {}},
+            "description": "Raw 16-bit LE PCM (8 kHz mono) or WAV.",
+        },
+        400: {"description": "Bad request"},
+        503: {"description": "Queue full or model not ready"},
+        504: {"description": "Timed out waiting for GPU worker"},
+    },
+)
+async def tts_generate(
+    text: str = Form(..., description="Текст для синтеза"),
+    lang: Lang = Form(..., description="Код языка (kk/ru/tr)"),
+    mode: VoiceMode = Form("auto", description="Режим: auto / design / clone"),
+    instruct: str | None = Form(None, description="Описание голоса для design"),
+    ref_text: str | None = Form(None, description="Транскрипция reference-аудио для clone"),
+    ref_audio: UploadFile | None = File(None, description="WAV 3–10 с для clone"),
+    fmt: Literal["pcm", "wav"] = Query("wav", description="Wire format"),
+) -> Response:
+    """Ad-hoc TTS without pre-registering a voice — drives the UI tabs."""
+    engine: TTSEngine = app.state.engine
+
+    if len(text) > settings.max_text_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"text too long ({len(text)} > {settings.max_text_length})",
+        )
+    if not engine.is_ready():
+        err = engine.load_error()
+        if err is not None:
+            raise HTTPException(status_code=503, detail=f"engine failed to load: {err}")
+        raise HTTPException(status_code=503, detail="engine still loading")
+
+    voice = Voice(id=f"adhoc_{lang}_{mode}", lang=lang, mode=mode)
+    tmp_path: PathLib | None = None
+    if mode == "design":
+        if not instruct:
+            raise HTTPException(status_code=400, detail="design mode requires `instruct`")
+        voice.instruct = instruct
+    elif mode == "clone":
+        if ref_audio is None or not ref_audio.filename:
+            raise HTTPException(status_code=400, detail="clone mode requires `ref_audio`")
+        if not ref_text:
+            raise HTTPException(status_code=400, detail="clone mode requires `ref_text`")
+        suffix = PathLib(ref_audio.filename).suffix or ".wav"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as f:
+            f.write(await ref_audio.read())
+            tmp_path = PathLib(f.name)
+        voice.ref_audio_path = tmp_path
+        voice.ref_text = ref_text
+
+    try:
+        pcm = await engine.synthesize(text, voice)
+    except QueueFullError:
+        raise HTTPException(status_code=503, detail="queue full, retry later")
+    except RequestTimeoutError:
+        raise HTTPException(status_code=504, detail="gpu worker timed out")
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
 
     if fmt == "wav":
         return Response(
